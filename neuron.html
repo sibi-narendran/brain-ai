@@ -1,0 +1,958 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Compartmental Neuron</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --ink: #141b2d;
+      --muted: #667085;
+      --line: #d5dce8;
+      --red: #dc2626;
+      --blue: #2563eb;
+      --green: #15803d;
+      --orange: #c2410c;
+      --purple: #7c3aed;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, sans-serif;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      padding: 16px;
+    }
+    main {
+      width: min(1280px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 12px;
+    }
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+    h1 { margin: 0; font-size: clamp(20px, 3vw, 30px); line-height: 1.05; }
+    .subtitle { margin: 2px 0 0; font-size: 12px; color: var(--muted); }
+    button {
+      min-height: 36px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 0 13px;
+      font: 750 13px/1 Inter, system-ui, sans-serif;
+      cursor: pointer;
+    }
+    button:hover { border-color: #98a2b3; background: #f9fbff; }
+    button.active {
+      background: var(--ink);
+      color: #fff;
+      border-color: var(--ink);
+    }
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(6, minmax(80px, 1fr));
+      gap: 8px;
+    }
+    .metric {
+      padding: 8px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      min-height: 58px;
+    }
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 10px;
+      line-height: 1.2;
+    }
+    .metric strong {
+      display: block;
+      margin-top: 5px;
+      font-size: 17px;
+      font-variant-numeric: tabular-nums;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 380px minmax(0,1fr);
+      gap: 12px;
+      align-items: start;
+    }
+    .canvas-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+    canvas { width: 100%; display: block; }
+    .right-col { display: grid; gap: 10px; }
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 12px;
+    }
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .row {
+      min-height: 26px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    .row strong {
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      font-size: 12px;
+    }
+    /* Trace chart */
+    .trace-wrap {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 12px;
+    }
+    .trace-wrap h2 {
+      margin: 0 0 8px;
+      font-size: 12px;
+      color: var(--muted);
+      text-transform: uppercase;
+      letter-spacing: 0.06em;
+    }
+    .trace-canvas-wrap { border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+    .trace-canvas-wrap canvas { width: 100%; display: block; }
+    /* Sliders */
+    .slider-group { display: grid; gap: 8px; }
+    .slider-row {
+      display: grid;
+      grid-template-columns: 90px 1fr 44px;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--muted);
+    }
+    input[type=range] { width: 100%; accent-color: var(--blue); }
+    .slider-val { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 700; text-align: right; font-size: 12px; }
+    /* Bar */
+    .bar-row { display: grid; gap: 5px; margin: 4px 0; }
+    .bar-label { display: flex; justify-content: space-between; font-size: 11px; color: var(--muted); }
+    .bar-track { height: 8px; background: #f0f2f5; border-radius: 5px; overflow: hidden; border: 1px solid var(--line); }
+    .bar-fill { height: 100%; border-radius: 5px; transition: width 0.08s; }
+    /* Spike flash */
+    .spike-flash {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 750;
+      background: #f3f4f6;
+      color: var(--muted);
+      transition: background 0.1s, color 0.1s;
+    }
+    .spike-flash.on { background: #fef9c3; color: #854d0e; }
+    .burst-flash {
+      display: inline-block;
+      padding: 2px 9px;
+      border-radius: 20px;
+      font-size: 11px;
+      font-weight: 750;
+      background: #f3f4f6;
+      color: var(--muted);
+      transition: background 0.1s, color 0.1s;
+    }
+    .burst-flash.on { background: #ede9fe; color: #5b21b6; }
+    .legend { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 6px; }
+    .leg { display: flex; align-items: center; gap: 4px; font-size: 11px; color: var(--muted); }
+    .leg-line { width: 16px; height: 3px; border-radius: 2px; }
+    @media (max-width: 960px) {
+      .layout { grid-template-columns: 1fr; }
+      .metrics { grid-template-columns: repeat(3,1fr); }
+    }
+    @media (max-width: 560px) {
+      .metrics { grid-template-columns: repeat(2,1fr); }
+    }
+  </style>
+</head>
+<body>
+<main>
+  <div class="topbar">
+    <div>
+      <h1>Compartmental Neuron</h1>
+      <p class="subtitle">Basal dendrite · Soma · Apical dendrite · Eligibility trace · Burst coding</p>
+    </div>
+    <div style="display:flex;gap:8px;flex-wrap:wrap">
+      <button id="fireBasalBtn">Fire Basal</button>
+      <button id="fireApicalBtn">Fire Apical</button>
+      <button id="fireBothBtn">Fire Both</button>
+      <button id="resetBtn">Reset</button>
+      <button id="pauseBtn">Pause</button>
+    </div>
+  </div>
+
+  <section class="metrics">
+    <div class="metric">
+      <span>Soma voltage</span>
+      <strong id="somaVOut">-70.0</strong>
+    </div>
+    <div class="metric">
+      <span>Basal voltage</span>
+      <strong id="basalVOut">-70.0</strong>
+    </div>
+    <div class="metric">
+      <span>Apical voltage</span>
+      <strong id="apicalVOut">-70.0</strong>
+    </div>
+    <div class="metric">
+      <span>Eligibility trace</span>
+      <strong id="traceOut">0.000</strong>
+    </div>
+    <div class="metric">
+      <span>Burst signal</span>
+      <strong id="burstOut">0.000</strong>
+    </div>
+    <div class="metric">
+      <span>Spike count</span>
+      <strong id="spikeCountOut">0</strong>
+    </div>
+  </section>
+
+  <section class="layout">
+    <!-- Left: neuron anatomy canvas -->
+    <div class="canvas-wrap">
+      <canvas id="neuronCanvas" aria-label="neuron anatomy"></canvas>
+    </div>
+
+    <!-- Right col -->
+    <div class="right-col">
+
+      <!-- Voltage traces -->
+      <div class="trace-wrap">
+        <h2>Voltage Traces</h2>
+        <div class="trace-canvas-wrap">
+          <canvas id="traceCanvas" aria-label="voltage traces"></canvas>
+        </div>
+        <div class="legend">
+          <div class="leg"><div class="leg-line" style="background:#2563eb"></div><span>Soma</span></div>
+          <div class="leg"><div class="leg-line" style="background:#15803d"></div><span>Basal</span></div>
+          <div class="leg"><div class="leg-line" style="background:#7c3aed"></div><span>Apical</span></div>
+          <div class="leg"><div class="leg-line" style="background:#c2410c"></div><span>Eligibility trace</span></div>
+        </div>
+      </div>
+
+      <!-- Controls -->
+      <div class="panel">
+        <h2>Input Currents</h2>
+        <div class="slider-group">
+          <div class="slider-row">
+            <span>Basal I</span>
+            <input type="range" id="basalSlider" min="0" max="30" step="0.5" value="0">
+            <span class="slider-val" id="basalVal">0.0</span>
+          </div>
+          <div class="slider-row">
+            <span>Apical I</span>
+            <input type="range" id="apicalSlider" min="0" max="30" step="0.5" value="0">
+            <span class="slider-val" id="apicalVal">0.0</span>
+          </div>
+          <div class="slider-row">
+            <span>Noise</span>
+            <input type="range" id="noiseSlider" min="0" max="5" step="0.1" value="0.5">
+            <span class="slider-val" id="noiseVal">0.5</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Live signals -->
+      <div class="panel">
+        <h2>Live Signals</h2>
+        <div class="bar-row">
+          <div class="bar-label"><span>Soma (threshold = -55mV)</span><span id="somaBarLabel">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="somaBar" style="width:0%;background:#2563eb"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Eligibility trace</span><span id="traceBarLabel">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="traceBar" style="width:0%;background:#c2410c"></div></div>
+        </div>
+        <div class="bar-row">
+          <div class="bar-label"><span>Burst signal (apical − soma)</span><span id="burstBarLabel">0%</span></div>
+          <div class="bar-track"><div class="bar-fill" id="burstBar" style="width:0%;background:#7c3aed"></div></div>
+        </div>
+        <div style="display:flex;gap:8px;margin-top:8px;align-items:center">
+          <span id="spikeFlash" class="spike-flash">SPIKE</span>
+          <span id="burstFlash" class="burst-flash">BURST</span>
+          <span style="font-size:11px;color:var(--muted);margin-left:4px">Burst = apical drives soma above threshold</span>
+        </div>
+      </div>
+
+      <!-- Equations -->
+      <div class="panel">
+        <h2>What's Running</h2>
+        <div class="row"><span>Basal</span><strong>τ_b·dV_b/dt = -(V_b−V_rest) + I_ff</strong></div>
+        <div class="row"><span>Apical</span><strong>τ_a·dV_a/dt = -(V_a−V_rest) + I_fb</strong></div>
+        <div class="row"><span>Soma</span><strong>τ_s·dV_s/dt = -(V_s−V_rest) + w_b·V_b + w_a·V_a</strong></div>
+        <div class="row"><span>Spike</span><strong>V_s > -55mV → spike → reset to -75mV</strong></div>
+        <div class="row"><span>Trace</span><strong>de/dt = -e/τ_e + spike(t)</strong></div>
+        <div class="row"><span>Burst</span><strong>b = V_apical - V_soma_pred</strong></div>
+        <div class="row"><span>E. coli link</span><strong>trace ≡ methylation memory</strong></div>
+      </div>
+
+    </div>
+  </section>
+</main>
+
+<script>
+  // ── Parameters ────────────────────────────────────────────────────
+  const V_REST   = -70;   // mV
+  const V_THRESH = -55;   // mV
+  const V_RESET  = -75;   // mV
+  const TAU_SOMA   = 20;  // ms
+  const TAU_BASAL  = 10;  // ms
+  const TAU_APICAL = 40;  // ms  (slower — feedback is slower)
+  const TAU_TRACE  = 500; // ms
+  const W_BASAL_TO_SOMA  = 0.55;
+  const W_APICAL_TO_SOMA = 0.35;
+  const DT = 0.5;         // ms per step
+  const TRACE_HISTORY = 600; // px width of trace plot
+
+  // ── State ─────────────────────────────────────────────────────────
+  let V_soma   = V_REST;
+  let V_basal  = V_REST;
+  let V_apical = V_REST;
+  let trace    = 0;
+  let spikeCount = 0;
+  let spikeFlashTimer = 0;
+  let burstFlashTimer = 0;
+  let paused = false;
+  let animFrame = null;
+  let lastTimestamp = null;
+  let accumMs = 0;
+
+  // Input currents (pA)
+  let I_basal  = 0;
+  let I_apical = 0;
+  let I_noise  = 0.5;
+
+  // Pulse injections
+  let pulseBasal  = 0;
+  let pulseApical = 0;
+
+  // History buffers for trace canvas
+  const histLen = TRACE_HISTORY;
+  const somaHist   = new Float32Array(histLen).fill(V_REST);
+  const basalHist  = new Float32Array(histLen).fill(V_REST);
+  const apicalHist = new Float32Array(histLen).fill(V_REST);
+  const traceHist  = new Float32Array(histLen).fill(0);
+  let histIdx = 0;
+
+  // ── Canvases ──────────────────────────────────────────────────────
+  const nCanvas = document.getElementById("neuronCanvas");
+  const nCtx    = nCanvas.getContext("2d");
+  const tCanvas = document.getElementById("traceCanvas");
+  const tCtx    = tCanvas.getContext("2d");
+
+  let NW = 380, NH = 580;
+  let TW = 600, TH = 180;
+
+  // ── UI refs ───────────────────────────────────────────────────────
+  const somaVOut     = document.getElementById("somaVOut");
+  const basalVOut    = document.getElementById("basalVOut");
+  const apicalVOut   = document.getElementById("apicalVOut");
+  const traceOut     = document.getElementById("traceOut");
+  const burstOut     = document.getElementById("burstOut");
+  const spikeCountOut= document.getElementById("spikeCountOut");
+  const somaBar      = document.getElementById("somaBar");
+  const traceBar     = document.getElementById("traceBar");
+  const burstBar     = document.getElementById("burstBar");
+  const somaBarLabel = document.getElementById("somaBarLabel");
+  const traceBarLabel= document.getElementById("traceBarLabel");
+  const burstBarLabel= document.getElementById("burstBarLabel");
+  const spikeFlash   = document.getElementById("spikeFlash");
+  const burstFlash   = document.getElementById("burstFlash");
+
+  // ── Sliders ───────────────────────────────────────────────────────
+  document.getElementById("basalSlider").addEventListener("input", e => {
+    I_basal = parseFloat(e.target.value);
+    document.getElementById("basalVal").textContent = I_basal.toFixed(1);
+  });
+  document.getElementById("apicalSlider").addEventListener("input", e => {
+    I_apical = parseFloat(e.target.value);
+    document.getElementById("apicalVal").textContent = I_apical.toFixed(1);
+  });
+  document.getElementById("noiseSlider").addEventListener("input", e => {
+    I_noise = parseFloat(e.target.value);
+    document.getElementById("noiseVal").textContent = I_noise.toFixed(1);
+  });
+
+  // ── Buttons ───────────────────────────────────────────────────────
+  document.getElementById("fireBasalBtn").addEventListener("click", () => {
+    pulseBasal = 60;
+  });
+  document.getElementById("fireApicalBtn").addEventListener("click", () => {
+    pulseApical = 60;
+  });
+  document.getElementById("fireBothBtn").addEventListener("click", () => {
+    pulseBasal = 60;
+    pulseApical = 60;
+  });
+  document.getElementById("resetBtn").addEventListener("click", reset);
+  document.getElementById("pauseBtn").addEventListener("click", () => {
+    paused = !paused;
+    document.getElementById("pauseBtn").textContent = paused ? "Resume" : "Pause";
+    if (!paused) {
+      lastTimestamp = null;
+      animFrame = requestAnimationFrame(loop);
+    }
+  });
+
+  // ── Simulation step ───────────────────────────────────────────────
+  function step(dt_ms) {
+    const noise = (Math.random() - 0.5) * 2 * I_noise;
+
+    // Basal compartment
+    V_basal += (-(V_basal - V_REST) + I_basal + pulseBasal + noise) / TAU_BASAL * dt_ms;
+    V_basal = Math.max(V_REST - 5, Math.min(40, V_basal));
+
+    // Apical compartment
+    V_apical += (-(V_apical - V_REST) + I_apical + pulseApical) / TAU_APICAL * dt_ms;
+    V_apical = Math.max(V_REST - 5, Math.min(40, V_apical));
+
+    // Soma integrates both
+    const I_soma = W_BASAL_TO_SOMA  * Math.max(0, V_basal  - V_REST)
+                 + W_APICAL_TO_SOMA * Math.max(0, V_apical - V_REST);
+    V_soma += (-(V_soma - V_REST) + I_soma) / TAU_SOMA * dt_ms;
+
+    // Decay pulses
+    pulseBasal  = Math.max(0, pulseBasal  - dt_ms * 2);
+    pulseApical = Math.max(0, pulseApical - dt_ms * 2);
+
+    // Spike detection
+    let spiked = false;
+    if (V_soma >= V_THRESH) {
+      V_soma = V_RESET;
+      trace += 1.0;
+      spikeCount++;
+      spikeFlashTimer = 120;
+      spiked = true;
+    }
+
+    // Trace decay
+    trace = Math.max(0, trace - trace / TAU_TRACE * dt_ms);
+    trace = Math.min(trace, 3);
+
+    // Burst = apical driving soma beyond what basal alone would give
+    const somaFromBasalOnly = V_REST + W_BASAL_TO_SOMA * Math.max(0, V_basal - V_REST);
+    const burst = Math.max(0, V_soma - somaFromBasalOnly) / 15;
+    if (burst > 0.15) burstFlashTimer = 80;
+
+    spikeFlashTimer = Math.max(0, spikeFlashTimer - dt_ms);
+    burstFlashTimer = Math.max(0, burstFlashTimer - dt_ms);
+
+    // Record history (every ~8ms)
+    accumMs += dt_ms;
+    if (accumMs >= 8) {
+      accumMs = 0;
+      somaHist[histIdx]   = V_soma;
+      basalHist[histIdx]  = V_basal;
+      apicalHist[histIdx] = V_apical;
+      traceHist[histIdx]  = trace;
+      histIdx = (histIdx + 1) % histLen;
+    }
+
+    return burst;
+  }
+
+  // ── Draw neuron anatomy ───────────────────────────────────────────
+  function drawNeuron() {
+    nCtx.clearRect(0, 0, NW, NH);
+    nCtx.fillStyle = "#ffffff";
+    nCtx.fillRect(0, 0, NW, NH);
+
+    const cx = NW / 2;
+
+    // Layout positions
+    const apicalTop  = 28;
+    const apicalBase = 145;
+    const somaY      = 240;
+    const somaR      = 38;
+    const basalTop   = somaY + somaR + 10;
+    const basalBot   = basalTop + 110;
+    const axonStart  = somaY + somaR;
+    const axonEnd    = NH - 28;
+
+    // ── Apical dendrite tree ──
+    // Trunk
+    nCtx.strokeStyle = "#7c3aed";
+    nCtx.lineWidth = 3.5;
+    nCtx.beginPath();
+    nCtx.moveTo(cx, apicalBase);
+    nCtx.lineTo(cx, apicalTop + 40);
+    nCtx.stroke();
+
+    // Branch left
+    nCtx.lineWidth = 2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx, apicalTop + 60);
+    nCtx.lineTo(cx - 55, apicalTop + 14);
+    nCtx.stroke();
+    // Sub branch left
+    nCtx.lineWidth = 1.2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx - 30, apicalTop + 40);
+    nCtx.lineTo(cx - 70, apicalTop + 22);
+    nCtx.stroke();
+
+    // Branch right
+    nCtx.lineWidth = 2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx, apicalTop + 60);
+    nCtx.lineTo(cx + 55, apicalTop + 14);
+    nCtx.stroke();
+    // Sub branch right
+    nCtx.lineWidth = 1.2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx + 30, apicalTop + 40);
+    nCtx.lineTo(cx + 70, apicalTop + 22);
+    nCtx.stroke();
+
+    // Tip dots
+    const tipColor = "#7c3aed";
+    [[cx, apicalTop + 28], [cx - 55, apicalTop + 10], [cx + 55, apicalTop + 10],
+     [cx - 70, apicalTop + 18], [cx + 70, apicalTop + 18]].forEach(([tx, ty]) => {
+      nCtx.beginPath();
+      nCtx.arc(tx, ty, 3.5, 0, Math.PI * 2);
+      nCtx.fillStyle = tipColor;
+      nCtx.fill();
+    });
+
+    // Apical voltage glow
+    const apicalFrac = Math.max(0, Math.min(1, (V_apical - V_REST) / (V_THRESH - V_REST)));
+    if (apicalFrac > 0.02) {
+      nCtx.save();
+      nCtx.globalAlpha = apicalFrac * 0.35;
+      nCtx.strokeStyle = "#7c3aed";
+      nCtx.lineWidth = 10;
+      nCtx.beginPath();
+      nCtx.moveTo(cx, apicalBase);
+      nCtx.lineTo(cx, apicalTop + 40);
+      nCtx.stroke();
+      nCtx.globalAlpha = 1;
+      nCtx.restore();
+    }
+
+    // Apical label
+    nCtx.fillStyle = "#7c3aed";
+    nCtx.font = "700 11px Inter, system-ui, sans-serif";
+    nCtx.textAlign = "left";
+    nCtx.textBaseline = "middle";
+    nCtx.fillText("Apical dendrite", cx + 78, apicalTop + 50);
+    nCtx.fillStyle = "#667085";
+    nCtx.font = "500 10px Inter, system-ui, sans-serif";
+    nCtx.fillText("feedback input", cx + 78, apicalTop + 63);
+    nCtx.fillText(V_apical.toFixed(1) + " mV", cx + 78, apicalTop + 76);
+
+    // ── Soma ──
+    // Glow based on voltage
+    const somaFrac = Math.max(0, Math.min(1, (V_soma - V_REST) / (V_THRESH - V_REST)));
+    if (somaFrac > 0.02) {
+      const glow = nCtx.createRadialGradient(cx, somaY, 0, cx, somaY, somaR + 22);
+      glow.addColorStop(0, `rgba(37,99,235,${somaFrac * 0.3})`);
+      glow.addColorStop(1, "rgba(37,99,235,0)");
+      nCtx.fillStyle = glow;
+      nCtx.beginPath();
+      nCtx.arc(cx, somaY, somaR + 22, 0, Math.PI * 2);
+      nCtx.fill();
+    }
+
+    // Spike flash
+    if (spikeFlashTimer > 0) {
+      const sf = spikeFlashTimer / 120;
+      nCtx.save();
+      nCtx.globalAlpha = sf * 0.7;
+      const flash = nCtx.createRadialGradient(cx, somaY, 0, cx, somaY, somaR + 40);
+      flash.addColorStop(0, "rgba(234,179,8,0.9)");
+      flash.addColorStop(1, "rgba(234,179,8,0)");
+      nCtx.fillStyle = flash;
+      nCtx.beginPath();
+      nCtx.arc(cx, somaY, somaR + 40, 0, Math.PI * 2);
+      nCtx.fill();
+      nCtx.restore();
+    }
+
+    // Soma circle — color by voltage
+    const somaColor = somaFrac > 0.85 ? "#f59e0b" : "#2563eb";
+    nCtx.beginPath();
+    nCtx.arc(cx, somaY, somaR, 0, Math.PI * 2);
+    nCtx.fillStyle = somaColor;
+    nCtx.strokeStyle = "#ffffff";
+    nCtx.lineWidth = 3;
+    nCtx.fill();
+    nCtx.stroke();
+
+    nCtx.fillStyle = "#ffffff";
+    nCtx.font = "800 12px Inter, system-ui, sans-serif";
+    nCtx.textAlign = "center";
+    nCtx.textBaseline = "middle";
+    nCtx.fillText("SOMA", cx, somaY - 6);
+    nCtx.font = "600 10px Inter, system-ui, sans-serif";
+    nCtx.fillText(V_soma.toFixed(1) + "mV", cx, somaY + 8);
+
+    // Threshold ring
+    nCtx.beginPath();
+    nCtx.arc(cx, somaY, somaR + 6, 0, Math.PI * 2);
+    nCtx.strokeStyle = somaFrac > 0.85 ? "#f59e0b" : "rgba(37,99,235,0.25)";
+    nCtx.lineWidth = 1.5;
+    nCtx.setLineDash([4, 4]);
+    nCtx.stroke();
+    nCtx.setLineDash([]);
+
+    // Soma labels
+    nCtx.fillStyle = "#2563eb";
+    nCtx.font = "700 11px Inter, system-ui, sans-serif";
+    nCtx.textAlign = "right";
+    nCtx.textBaseline = "middle";
+    nCtx.fillText("Soma", cx - 48, somaY - 8);
+    nCtx.fillStyle = "#667085";
+    nCtx.font = "500 10px Inter, system-ui, sans-serif";
+    nCtx.fillText("integrator", cx - 48, somaY + 5);
+    nCtx.fillText("threshold: -55mV", cx - 48, somaY + 18);
+
+    // ── Basal dendrites ──
+    nCtx.strokeStyle = "#15803d";
+    // Trunk down from soma
+    nCtx.lineWidth = 3.5;
+    nCtx.beginPath();
+    nCtx.moveTo(cx, basalTop);
+    nCtx.lineTo(cx, basalTop + 45);
+    nCtx.stroke();
+
+    // Left basal branch
+    nCtx.lineWidth = 2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx, basalTop + 35);
+    nCtx.lineTo(cx - 60, basalBot - 10);
+    nCtx.stroke();
+    nCtx.lineWidth = 1.2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx - 32, basalTop + 58);
+    nCtx.lineTo(cx - 72, basalTop + 75);
+    nCtx.stroke();
+
+    // Right basal branch
+    nCtx.lineWidth = 2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx, basalTop + 35);
+    nCtx.lineTo(cx + 60, basalBot - 10);
+    nCtx.stroke();
+    nCtx.lineWidth = 1.2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx + 32, basalTop + 58);
+    nCtx.lineTo(cx + 72, basalTop + 75);
+    nCtx.stroke();
+
+    // Basal tip dots
+    [[cx, basalTop + 48], [cx - 60, basalBot - 6], [cx + 60, basalBot - 6],
+     [cx - 72, basalTop + 78], [cx + 72, basalTop + 78]].forEach(([tx, ty]) => {
+      nCtx.beginPath();
+      nCtx.arc(tx, ty, 3.5, 0, Math.PI * 2);
+      nCtx.fillStyle = "#15803d";
+      nCtx.fill();
+    });
+
+    // Basal voltage glow
+    const basalFrac = Math.max(0, Math.min(1, (V_basal - V_REST) / (V_THRESH - V_REST)));
+    if (basalFrac > 0.02) {
+      nCtx.save();
+      nCtx.globalAlpha = basalFrac * 0.35;
+      nCtx.strokeStyle = "#15803d";
+      nCtx.lineWidth = 10;
+      nCtx.beginPath();
+      nCtx.moveTo(cx, basalTop);
+      nCtx.lineTo(cx, basalTop + 45);
+      nCtx.stroke();
+      nCtx.globalAlpha = 1;
+      nCtx.restore();
+    }
+
+    // Basal labels
+    nCtx.fillStyle = "#15803d";
+    nCtx.font = "700 11px Inter, system-ui, sans-serif";
+    nCtx.textAlign = "left";
+    nCtx.textBaseline = "middle";
+    nCtx.fillText("Basal dendrites", cx + 78, basalTop + 40);
+    nCtx.fillStyle = "#667085";
+    nCtx.font = "500 10px Inter, system-ui, sans-serif";
+    nCtx.fillText("feedforward input", cx + 78, basalTop + 53);
+    nCtx.fillText(V_basal.toFixed(1) + " mV", cx + 78, basalTop + 66);
+
+    // ── Axon ──
+    const axonX = cx;
+    const axonMid = axonStart + (axonEnd - axonStart) * 0.5;
+
+    nCtx.strokeStyle = "#c2410c";
+    nCtx.lineWidth = 3;
+    nCtx.beginPath();
+    nCtx.moveTo(axonX, axonStart);
+    nCtx.lineTo(axonX, axonEnd);
+    nCtx.stroke();
+
+    // Spike traveling down axon
+    if (spikeFlashTimer > 0) {
+      const progress = 1 - spikeFlashTimer / 120;
+      const spikeY = axonStart + progress * (axonEnd - axonStart);
+      const glow = nCtx.createRadialGradient(axonX, spikeY, 0, axonX, spikeY, 14);
+      glow.addColorStop(0, "rgba(234,179,8,0.9)");
+      glow.addColorStop(1, "rgba(234,179,8,0)");
+      nCtx.fillStyle = glow;
+      nCtx.beginPath();
+      nCtx.arc(axonX, spikeY, 14, 0, Math.PI * 2);
+      nCtx.fill();
+    }
+
+    // Axon terminal
+    nCtx.beginPath();
+    nCtx.arc(axonX, axonEnd, 6, 0, Math.PI * 2);
+    nCtx.fillStyle = "#c2410c";
+    nCtx.strokeStyle = "#ffffff";
+    nCtx.lineWidth = 2;
+    nCtx.fill();
+    nCtx.stroke();
+
+    // Axon label
+    nCtx.fillStyle = "#c2410c";
+    nCtx.font = "700 11px Inter, system-ui, sans-serif";
+    nCtx.textAlign = "right";
+    nCtx.textBaseline = "middle";
+    nCtx.fillText("Axon output", cx - 14, axonMid);
+    nCtx.fillStyle = "#667085";
+    nCtx.font = "500 10px Inter, system-ui, sans-serif";
+    nCtx.fillText("spikes travel here", cx - 14, axonMid + 13);
+
+    // Eligibility trace bar on axon
+    const traceH = Math.min(1, trace / 2) * (axonEnd - axonStart - 20);
+    if (traceH > 0) {
+      nCtx.save();
+      nCtx.globalAlpha = 0.25;
+      nCtx.fillStyle = "#c2410c";
+      nCtx.fillRect(cx + 6, axonEnd - traceH, 8, traceH);
+      nCtx.globalAlpha = 1;
+      nCtx.restore();
+    }
+
+    // Trace label
+    nCtx.fillStyle = "#667085";
+    nCtx.font = "500 10px Inter, system-ui, sans-serif";
+    nCtx.textAlign = "left";
+    nCtx.textBaseline = "middle";
+    nCtx.fillText("trace: " + trace.toFixed(2), cx + 18, axonEnd - 10);
+
+    // Apical−Soma connection line (trunk)
+    nCtx.strokeStyle = "rgba(124,58,237,0.3)";
+    nCtx.lineWidth = 2;
+    nCtx.beginPath();
+    nCtx.moveTo(cx, apicalBase);
+    nCtx.lineTo(cx, somaY - somaR);
+    nCtx.stroke();
+
+    // Border
+    nCtx.strokeStyle = "#d5dce8";
+    nCtx.lineWidth = 1.5;
+    nCtx.strokeRect(0, 0, NW, NH);
+  }
+
+  // ── Draw voltage traces ───────────────────────────────────────────
+  function drawTraces() {
+    tCtx.clearRect(0, 0, TW, TH);
+    tCtx.fillStyle = "#ffffff";
+    tCtx.fillRect(0, 0, TW, TH);
+
+    // Grid lines
+    tCtx.strokeStyle = "#e9edf4";
+    tCtx.lineWidth = 1;
+    for (let i = 0; i <= 4; i++) {
+      const y = (i / 4) * TH;
+      tCtx.beginPath();
+      tCtx.moveTo(0, y);
+      tCtx.lineTo(TW, y);
+      tCtx.stroke();
+    }
+
+    // Threshold line
+    const threshY = voltToY(V_THRESH);
+    tCtx.strokeStyle = "rgba(220,38,38,0.3)";
+    tCtx.lineWidth = 1;
+    tCtx.setLineDash([4, 4]);
+    tCtx.beginPath();
+    tCtx.moveTo(0, threshY);
+    tCtx.lineTo(TW, threshY);
+    tCtx.stroke();
+    tCtx.setLineDash([]);
+    tCtx.fillStyle = "rgba(220,38,38,0.5)";
+    tCtx.font = "500 9px Inter, system-ui";
+    tCtx.textAlign = "right";
+    tCtx.textBaseline = "bottom";
+    tCtx.fillText("-55mV", TW - 2, threshY - 1);
+
+    // Rest line
+    const restY = voltToY(V_REST);
+    tCtx.strokeStyle = "rgba(100,116,139,0.2)";
+    tCtx.lineWidth = 1;
+    tCtx.setLineDash([2, 4]);
+    tCtx.beginPath();
+    tCtx.moveTo(0, restY);
+    tCtx.lineTo(TW, restY);
+    tCtx.stroke();
+    tCtx.setLineDash([]);
+
+    drawSignal(somaHist,   "#2563eb", 2.2, voltToY);
+    drawSignal(basalHist,  "#15803d", 1.5, voltToY);
+    drawSignal(apicalHist, "#7c3aed", 1.5, voltToY);
+    drawTraceSignal(traceHist, "#c2410c", 1.5);
+
+    // Border
+    tCtx.strokeStyle = "#d5dce8";
+    tCtx.lineWidth = 1;
+    tCtx.strokeRect(0, 0, TW, TH);
+  }
+
+  function voltToY(v) {
+    const vMin = -80, vMax = 45;
+    return TH - ((v - vMin) / (vMax - vMin)) * TH;
+  }
+
+  function drawSignal(hist, color, lineWidth, yFn) {
+    tCtx.strokeStyle = color;
+    tCtx.lineWidth = lineWidth;
+    tCtx.beginPath();
+    for (let i = 0; i < histLen; i++) {
+      const idx = (histIdx + i) % histLen;
+      const x = (i / (histLen - 1)) * TW;
+      const y = yFn(hist[idx]);
+      i === 0 ? tCtx.moveTo(x, y) : tCtx.lineTo(x, y);
+    }
+    tCtx.stroke();
+  }
+
+  function drawTraceSignal(hist, color, lineWidth) {
+    tCtx.strokeStyle = color;
+    tCtx.lineWidth = lineWidth;
+    tCtx.beginPath();
+    for (let i = 0; i < histLen; i++) {
+      const idx = (histIdx + i) % histLen;
+      const x = (i / (histLen - 1)) * TW;
+      const y = TH - (hist[idx] / 3) * (TH * 0.6);
+      i === 0 ? tCtx.moveTo(x, y) : tCtx.lineTo(x, y);
+    }
+    tCtx.stroke();
+  }
+
+  // ── Update UI ─────────────────────────────────────────────────────
+  function updateUI(burst) {
+    somaVOut.textContent   = V_soma.toFixed(1);
+    basalVOut.textContent  = V_basal.toFixed(1);
+    apicalVOut.textContent = V_apical.toFixed(1);
+    traceOut.textContent   = trace.toFixed(3);
+    burstOut.textContent   = burst.toFixed(3);
+    spikeCountOut.textContent = spikeCount;
+
+    somaVOut.style.color   = V_soma > V_THRESH - 5 ? "#dc2626" : "#141b2d";
+    apicalVOut.style.color = V_apical > V_REST + 5  ? "#7c3aed" : "#141b2d";
+    basalVOut.style.color  = V_basal  > V_REST + 5  ? "#15803d" : "#141b2d";
+
+    const somaPct = Math.round(Math.max(0, Math.min(1, (V_soma - V_REST) / (V_THRESH - V_REST))) * 100);
+    const tracePct = Math.round(Math.min(1, trace / 2) * 100);
+    const burstPct = Math.round(Math.min(1, burst) * 100);
+
+    somaBar.style.width     = somaPct + "%";
+    traceBar.style.width    = tracePct + "%";
+    burstBar.style.width    = burstPct + "%";
+    somaBarLabel.textContent  = somaPct + "%";
+    traceBarLabel.textContent = tracePct + "%";
+    burstBarLabel.textContent = burstPct + "%";
+
+    spikeFlash.className = spikeFlashTimer > 0 ? "spike-flash on" : "spike-flash";
+    burstFlash.className = burstFlashTimer > 0 ? "burst-flash on" : "burst-flash";
+  }
+
+  // ── Reset ─────────────────────────────────────────────────────────
+  function reset() {
+    V_soma = V_REST; V_basal = V_REST; V_apical = V_REST;
+    trace = 0; spikeCount = 0;
+    spikeFlashTimer = 0; burstFlashTimer = 0;
+    pulseBasal = 0; pulseApical = 0;
+    somaHist.fill(V_REST);
+    basalHist.fill(V_REST);
+    apicalHist.fill(V_REST);
+    traceHist.fill(0);
+    histIdx = 0;
+  }
+
+  // ── Main loop ─────────────────────────────────────────────────────
+  function loop(timestamp) {
+    if (paused) return;
+
+    if (lastTimestamp === null) lastTimestamp = timestamp;
+    const wallMs = Math.min(timestamp - lastTimestamp, 50);
+    lastTimestamp = timestamp;
+
+    // Run multiple sim steps per frame (sim runs at DT=0.5ms)
+    const stepsPerFrame = Math.round(wallMs / DT);
+    let burst = 0;
+    for (let s = 0; s < stepsPerFrame; s++) {
+      burst = step(DT);
+    }
+
+    drawNeuron();
+    drawTraces();
+    updateUI(burst);
+
+    animFrame = requestAnimationFrame(loop);
+  }
+
+  // ── Resize ────────────────────────────────────────────────────────
+  function resizeCanvases() {
+    const scale = window.devicePixelRatio || 1;
+
+    // Neuron canvas
+    const nRect = nCanvas.parentElement.getBoundingClientRect();
+    NW = Math.max(280, Math.round(nRect.width));
+    NH = Math.round(NW * 1.52);
+    nCanvas.width  = Math.round(NW * scale);
+    nCanvas.height = Math.round(NH * scale);
+    nCanvas.style.height = NH + "px";
+    nCtx.setTransform(scale, 0, 0, scale, 0, 0);
+
+    // Trace canvas
+    const tRect = tCanvas.parentElement.getBoundingClientRect();
+    TW = Math.max(200, Math.round(tRect.width));
+    TH = 180;
+    tCanvas.width  = Math.round(TW * scale);
+    tCanvas.height = Math.round(TH * scale);
+    tCanvas.style.height = TH + "px";
+    tCtx.setTransform(scale, 0, 0, scale, 0, 0);
+  }
+
+  window.addEventListener("resize", resizeCanvases);
+  resizeCanvases();
+  reset();
+  lastTimestamp = null;
+  animFrame = requestAnimationFrame(loop);
+</script>
+</body>
+</html>

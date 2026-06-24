@@ -1,0 +1,40 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="960" height="540" viewBox="0 0 960 540">
+  <rect width="960" height="540" fill="#f7f3ea"/>
+  <rect x="24" y="78" width="912" height="438" rx="8" fill="#fffaf0" stroke="#c7bba7"/>
+
+  <g stroke="#eadfce" stroke-width="1">
+    <path d="M64 78V516M104 78V516M144 78V516M184 78V516M224 78V516M264 78V516M304 78V516M344 78V516M384 78V516M424 78V516M464 78V516M504 78V516M544 78V516M584 78V516M624 78V516M664 78V516M704 78V516M744 78V516M784 78V516M824 78V516M864 78V516M904 78V516"/>
+    <path d="M24 116H936M24 156H936M24 196H936M24 236H936M24 276H936M24 316H936M24 356H936M24 396H936M24 436H936M24 476H936"/>
+  </g>
+
+  <g stroke="#a3947d" stroke-width="2" fill="none">
+    <path d="M72 468H900"/>
+    <path d="M72 468V112"/>
+  </g>
+
+  <text x="908" y="473" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700" fill="#667085">x</text>
+  <text x="64" y="105" font-family="Inter, system-ui, sans-serif" font-size="16" font-weight="700" fill="#667085">y</text>
+
+  <text x="24" y="38" font-family="Inter, system-ui, sans-serif" font-size="28" font-weight="800" fill="#1f2933">Two Neurons in 2D Space</text>
+  <text x="24" y="64" font-family="Inter, system-ui, sans-serif" font-size="15" font-weight="600" fill="#667085">A=(190,245), B=(610,210), dx=420, dy=-35, d2=177625</text>
+
+  <path d="M190 245H610V210" fill="none" stroke="#667085" stroke-width="2" stroke-dasharray="8 8"/>
+  <path d="M190 245L610 210" fill="none" stroke="#9f1239" stroke-width="4" stroke-linecap="round"/>
+
+  <circle cx="190" cy="245" r="22" fill="#146c94" fill-opacity="0.14"/>
+  <circle cx="190" cy="245" r="15" fill="#146c94"/>
+  <text x="190" y="250" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="800" fill="#ffffff">A</text>
+  <text x="190" y="284" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#1f2933">(190, 245)</text>
+
+  <circle cx="610" cy="210" r="22" fill="#c2410c" fill-opacity="0.14"/>
+  <circle cx="610" cy="210" r="15" fill="#c2410c"/>
+  <text x="610" y="215" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="14" font-weight="800" fill="#ffffff">B</text>
+  <text x="610" y="249" text-anchor="middle" font-family="Inter, system-ui, sans-serif" font-size="13" font-weight="700" fill="#1f2933">(610, 210)</text>
+
+  <g font-family="Inter, system-ui, sans-serif" font-size="15" font-weight="700">
+    <rect x="646" y="30" width="290" height="38" rx="8" fill="#ffffff" fill-opacity="0.46" stroke="#c7bba7"/>
+    <text x="662" y="54" fill="#1f2933">near?</text>
+    <text x="718" y="54" fill="#9f1239">false</text>
+    <text x="774" y="54" fill="#667085">because d2 &gt; 170^2</text>
+  </g>
+</svg>

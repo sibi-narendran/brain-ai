@@ -1,0 +1,753 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Distance Neuron Space</title>
+  <style>
+    :root {
+      color-scheme: light;
+      --bg: #f5f6f8;
+      --panel: #ffffff;
+      --ink: #141b2d;
+      --muted: #667085;
+      --line: #d5dce8;
+      --grid: #e9edf4;
+      --red: #dc2626;
+      --blue: #2563eb;
+      --green: #15803d;
+      --orange: #c2410c;
+      font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--ink);
+      padding: 16px;
+    }
+
+    main {
+      width: min(1220px, 100%);
+      margin: 0 auto;
+      display: grid;
+      gap: 12px;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    h1 {
+      margin: 0;
+      font-size: clamp(22px, 3vw, 32px);
+      line-height: 1.05;
+      letter-spacing: 0;
+    }
+
+    button {
+      min-height: 38px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      color: var(--ink);
+      padding: 0 13px;
+      font: 750 14px/1 Inter, system-ui, sans-serif;
+      cursor: pointer;
+    }
+
+    button:hover {
+      border-color: #98a2b3;
+      background: #f9fbff;
+    }
+
+    .metrics {
+      display: grid;
+      grid-template-columns: repeat(5, minmax(96px, 1fr));
+      gap: 8px;
+    }
+
+    .metric {
+      min-height: 60px;
+      padding: 9px 10px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+    }
+
+    .metric span {
+      display: block;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.2;
+      white-space: nowrap;
+    }
+
+    .metric strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 18px;
+      line-height: 1.1;
+      font-variant-numeric: tabular-nums;
+      white-space: nowrap;
+    }
+
+    .layout {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) 300px;
+      gap: 12px;
+      align-items: stretch;
+    }
+
+    .canvas-wrap {
+      min-height: 560px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      overflow: hidden;
+      touch-action: none;
+      user-select: none;
+    }
+
+    canvas {
+      width: 100%;
+      height: 100%;
+      min-height: 560px;
+      display: block;
+      cursor: crosshair;
+      touch-action: none;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+
+    .side {
+      display: grid;
+      gap: 10px;
+      align-content: start;
+    }
+
+    .panel {
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: var(--panel);
+      padding: 12px;
+    }
+
+    .panel h2 {
+      margin: 0 0 10px;
+      font-size: 14px;
+      letter-spacing: 0;
+    }
+
+    .row {
+      min-height: 28px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .row strong {
+      color: var(--ink);
+      font-variant-numeric: tabular-nums;
+      text-align: right;
+    }
+
+    .link-list {
+      display: grid;
+      gap: 6px;
+      min-height: 80px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.35;
+      font-variant-numeric: tabular-nums;
+    }
+
+    .link-item {
+      padding: 6px 7px;
+      border-radius: 7px;
+      background: #f7f9fc;
+      border: 1px solid #edf1f6;
+      color: var(--ink);
+    }
+
+    @media (max-width: 960px) {
+      .metrics {
+        grid-template-columns: repeat(3, minmax(0, 1fr));
+      }
+
+      .layout {
+        grid-template-columns: 1fr;
+      }
+
+      .canvas-wrap,
+      canvas {
+        min-height: 500px;
+      }
+
+      .side {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+    }
+
+    @media (max-width: 620px) {
+      body {
+        padding: 10px;
+      }
+
+      .metrics,
+      .side {
+        grid-template-columns: repeat(2, minmax(0, 1fr));
+      }
+
+      .metric strong {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <div class="topbar">
+      <h1>Distance Neuron Space</h1>
+      <button id="resetBtn">Reset Positions</button>
+    </div>
+
+    <section class="metrics" aria-label="network state">
+      <div class="metric">
+        <span>Eye says</span>
+        <strong id="eyeNumberOut">0</strong>
+      </div>
+      <div class="metric">
+        <span>answer neuron</span>
+        <strong id="answerOut">none</strong>
+      </div>
+      <div class="metric">
+        <span>distance links</span>
+        <strong id="linksOut">0</strong>
+      </div>
+      <div class="metric">
+        <span>Eye to Answer</span>
+        <strong id="pathOut">not connected</strong>
+      </div>
+    </section>
+
+    <section class="layout">
+      <div class="canvas-wrap">
+        <canvas id="space" aria-label="distance neuron space"></canvas>
+      </div>
+
+      <aside class="side">
+        <section class="panel">
+          <h2>Input / Output</h2>
+          <div class="row"><span>Input neuron</span><strong>Eye</strong></div>
+          <div class="row"><span>Output neuron</span><strong>Answer</strong></div>
+          <div class="row"><span>Eye number</span><strong>random</strong></div>
+          <div class="row"><span>Less than 50</span><strong>blue</strong></div>
+          <div class="row"><span>More than 50</span><strong>red</strong></div>
+          <div class="row"><span>Middle neurons</span><strong>N1, N2</strong></div>
+          <div class="row"><span>Drag</span><strong>move neurons</strong></div>
+          <div class="row"><span>Empty click</span><strong>does nothing</strong></div>
+        </section>
+
+        <section class="panel">
+          <h2>Only Rule Left</h2>
+          <div class="row"><span>Near radius</span><strong id="radiusOut">100 px</strong></div>
+          <div class="row"><span>If near</span><strong>draw link</strong></div>
+          <div class="row"><span>If far</span><strong>no link</strong></div>
+          <div class="row"><span>Learning</span><strong>removed</strong></div>
+          <div class="row"><span>Weights</span><strong>removed</strong></div>
+          <div class="row"><span>Thresholds</span><strong>removed</strong></div>
+        </section>
+
+        <section class="panel">
+          <h2>Current Links</h2>
+          <div id="linkList" class="link-list"></div>
+        </section>
+      </aside>
+    </section>
+  </main>
+
+  <script>
+    const canvas = document.getElementById("space");
+    const ctx = canvas.getContext("2d");
+
+    const resetBtn = document.getElementById("resetBtn");
+    const eyeNumberOut = document.getElementById("eyeNumberOut");
+    const answerOut = document.getElementById("answerOut");
+    const linksOut = document.getElementById("linksOut");
+    const pathOut = document.getElementById("pathOut");
+    const radiusOut = document.getElementById("radiusOut");
+    const linkList = document.getElementById("linkList");
+
+    const red = "#dc2626";
+    const blue = "#2563eb";
+    const green = "#15803d";
+    const orange = "#c2410c";
+    const ink = "#141b2d";
+    const nearRadiusPx = 100;
+    const nearRadiusSquared = nearRadiusPx * nearRadiusPx;
+
+    let width = 900;
+    let height = 560;
+    let plot = { x: 48, y: 38, w: 800, h: 470 };
+    let nodes = [];
+    let links = [];
+    let eyeNumber = 0;
+    let randomTimer = null;
+    let dragIndex = null;
+    let dragPointerId = null;
+    let dragOffset = { x: 0, y: 0 };
+    let hoverIndex = null;
+    let drawFrame = null;
+
+    function clamp(value, min, max) {
+      return Math.max(min, Math.min(max, value));
+    }
+
+    function randomEyeNumber() {
+      if (Math.random() < 0.5) {
+        return Math.floor(Math.random() * 50);
+      }
+
+      return 51 + Math.floor(Math.random() * 50);
+    }
+
+    function answerForEye() {
+      return eyeNumber < 50 ? "blue" : "red";
+    }
+
+    function answerColor() {
+      return answerForEye() === "blue" ? blue : red;
+    }
+
+    function resetNodes() {
+      nodes = [
+        { id: "Eye", role: "input", x: 0.14, y: 0.50 },
+        { id: "N1", role: "middle", x: 0.36, y: 0.36 },
+        { id: "N2", role: "middle", x: 0.36, y: 0.64 },
+        { id: "Answer", role: "output", x: 0.64, y: 0.50 }
+      ];
+    }
+
+    function project(point) {
+      return {
+        x: plot.x + point.x * plot.w,
+        y: plot.y + (1 - point.y) * plot.h
+      };
+    }
+
+    function unproject(point) {
+      return {
+        x: (point.x - plot.x) / plot.w,
+        y: 1 - (point.y - plot.y) / plot.h
+      };
+    }
+
+    function canvasPoint(event) {
+      const rect = canvas.getBoundingClientRect();
+      return {
+        x: event.clientX - rect.left,
+        y: event.clientY - rect.top
+      };
+    }
+
+    function d2Between(a, b) {
+      const pa = project(a);
+      const pb = project(b);
+      const dx = pb.x - pa.x;
+      const dy = pb.y - pa.y;
+      return dx * dx + dy * dy;
+    }
+
+    function distanceBetween(a, b) {
+      return Math.sqrt(d2Between(a, b));
+    }
+
+    function rebuildLinks() {
+      links = [];
+
+      for (let a = 0; a < nodes.length; a += 1) {
+        for (let b = a + 1; b < nodes.length; b += 1) {
+          const distance = distanceBetween(nodes[a], nodes[b]);
+
+          if (distance <= nearRadiusPx) {
+            links.push({ a, b, distance });
+          }
+        }
+      }
+    }
+
+    function hasPathToAnswer() {
+      const start = nodes.findIndex((node) => node.id === "Eye");
+      const goal = nodes.findIndex((node) => node.id === "Answer");
+      const seen = new Set([start]);
+      const queue = [start];
+
+      while (queue.length > 0) {
+        const current = queue.shift();
+
+        if (current === goal) {
+          return true;
+        }
+
+        for (const link of links) {
+          let next = null;
+
+          if (link.a === current) {
+            next = link.b;
+          } else if (link.b === current) {
+            next = link.a;
+          }
+
+          if (next !== null && !seen.has(next)) {
+            seen.add(next);
+            queue.push(next);
+          }
+        }
+      }
+
+      return false;
+    }
+
+    function nearestNode(point) {
+      let closest = null;
+      let closestD2 = Infinity;
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        const p = project(nodes[i]);
+        const dx = point.x - p.x;
+        const dy = point.y - p.y;
+        const d2 = dx * dx + dy * dy;
+
+        if (d2 < closestD2) {
+          closestD2 = d2;
+          closest = i;
+        }
+      }
+
+      return closestD2 <= 72 * 72 ? closest : null;
+    }
+
+    function moveNode(index, point, useDragOffset = false) {
+      const target = useDragOffset
+        ? { x: point.x - dragOffset.x, y: point.y - dragOffset.y }
+        : point;
+      const model = unproject(target);
+      nodes[index].x = clamp(model.x, 0.02, 0.98);
+      nodes[index].y = clamp(model.y, 0.05, 0.95);
+      rebuildLinks();
+      updateUi();
+      requestDraw();
+    }
+
+    function updateUi() {
+      const connected = hasPathToAnswer();
+      eyeNumberOut.textContent = eyeNumber;
+      eyeNumberOut.style.color = answerColor();
+      answerOut.textContent = "none";
+      answerOut.style.color = "#667085";
+      linksOut.textContent = links.length;
+      pathOut.textContent = connected ? "connected" : "not connected";
+      pathOut.style.color = connected ? green : "#667085";
+      radiusOut.textContent = `${nearRadiusPx} px`;
+
+      linkList.innerHTML = "";
+
+      if (links.length === 0) {
+        const item = document.createElement("div");
+        item.className = "link-item";
+        item.textContent = "No links. Drag neurons closer until circles overlap.";
+        linkList.appendChild(item);
+        return;
+      }
+
+      for (const link of links) {
+        const item = document.createElement("div");
+        item.className = "link-item";
+        item.textContent = `${nodes[link.a].id} - ${nodes[link.b].id}  d=${Math.round(link.distance)}px`;
+        linkList.appendChild(item);
+      }
+    }
+
+    function drawGrid() {
+      ctx.clearRect(0, 0, width, height);
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, width, height);
+
+      ctx.strokeStyle = "#e9edf4";
+      ctx.lineWidth = 1;
+
+      for (let i = 0; i <= 10; i += 1) {
+        const x = plot.x + (i / 10) * plot.w;
+        const y = plot.y + (i / 10) * plot.h;
+
+        ctx.beginPath();
+        ctx.moveTo(x, plot.y);
+        ctx.lineTo(x, plot.y + plot.h);
+        ctx.stroke();
+
+        ctx.beginPath();
+        ctx.moveTo(plot.x, y);
+        ctx.lineTo(plot.x + plot.w, y);
+        ctx.stroke();
+      }
+
+      ctx.strokeStyle = ink;
+      ctx.lineWidth = 2;
+      const boundary = plot.x + plot.w * 0.5;
+      ctx.beginPath();
+      ctx.moveTo(boundary, plot.y);
+      ctx.lineTo(boundary, plot.y + plot.h);
+      ctx.stroke();
+
+      ctx.strokeStyle = "#98a2b3";
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(plot.x, plot.y, plot.w, plot.h);
+    }
+
+    function drawLinks() {
+      for (const link of links) {
+        const a = project(nodes[link.a]);
+        const b = project(nodes[link.b]);
+        const mx = (a.x + b.x) / 2;
+        const my = (a.y + b.y) / 2;
+
+        ctx.strokeStyle = green;
+        ctx.lineWidth = 3;
+        ctx.globalAlpha = 0.80;
+        ctx.beginPath();
+        ctx.moveTo(a.x, a.y);
+        ctx.lineTo(b.x, b.y);
+        ctx.stroke();
+        ctx.globalAlpha = 1;
+
+        ctx.fillStyle = "#475467";
+        ctx.font = "800 11px Inter, system-ui, sans-serif";
+        ctx.textAlign = "center";
+        ctx.textBaseline = "middle";
+        ctx.fillText(`${Math.round(link.distance)}px`, mx, my - 10);
+      }
+    }
+
+    function drawNode(node, index) {
+      const p = project(node);
+      const isHovered = index === hoverIndex;
+      const isDragging = index === dragIndex;
+      let fill = "#475467";
+      let radius = 17;
+
+      if (node.role === "input") {
+        fill = answerColor();
+        radius = 19;
+      } else if (node.role === "output") {
+        fill = "#475467";
+        radius = 24;
+      }
+
+      ctx.globalAlpha = 0.06;
+      ctx.fillStyle = fill;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, nearRadiusPx, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.globalAlpha = 1;
+
+      if (isHovered || isDragging) {
+        ctx.strokeStyle = isDragging ? ink : "#98a2b3";
+        ctx.lineWidth = isDragging ? 3 : 2;
+        ctx.beginPath();
+        ctx.arc(p.x, p.y, radius + 9, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      ctx.fillStyle = fill;
+      ctx.strokeStyle = "#ffffff";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(p.x, p.y, radius, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+
+      ctx.fillStyle = "#ffffff";
+      ctx.font = node.role === "output" ? "800 11px Inter, system-ui, sans-serif" : "850 12px Inter, system-ui, sans-serif";
+      ctx.textAlign = "center";
+      ctx.textBaseline = "middle";
+      ctx.fillText(node.role === "output" ? "ANS" : node.id, p.x, p.y + 1);
+
+      ctx.fillStyle = ink;
+      ctx.font = "800 12px Inter, system-ui, sans-serif";
+      ctx.fillText(node.id, p.x, p.y + radius + 18);
+
+      if (node.role === "input") {
+        ctx.fillStyle = answerColor();
+        ctx.font = "800 12px Inter, system-ui, sans-serif";
+        ctx.fillText(String(eyeNumber), p.x, p.y - radius - 13);
+      }
+    }
+
+    function draw() {
+      drawGrid();
+      drawLinks();
+
+      for (let i = 0; i < nodes.length; i += 1) {
+        drawNode(nodes[i], i);
+      }
+    }
+
+    function requestDraw() {
+      if (drawFrame !== null) {
+        return;
+      }
+
+      drawFrame = requestAnimationFrame(() => {
+        drawFrame = null;
+        draw();
+      });
+    }
+
+    function resizeCanvas() {
+      const rect = canvas.getBoundingClientRect();
+      const scale = window.devicePixelRatio || 1;
+      width = Math.max(360, rect.width);
+      height = Math.max(420, rect.height);
+      canvas.width = Math.round(width * scale);
+      canvas.height = Math.round(height * scale);
+      ctx.setTransform(scale, 0, 0, scale, 0, 0);
+      plot = {
+        x: 48,
+        y: 38,
+        w: width - 96,
+        h: height - 82
+      };
+      rebuildLinks();
+      updateUi();
+      requestDraw();
+    }
+
+    function reset() {
+      resetNodes();
+      eyeNumber = randomEyeNumber();
+      hoverIndex = null;
+      dragIndex = null;
+      dragPointerId = null;
+      dragOffset = { x: 0, y: 0 };
+      rebuildLinks();
+      updateUi();
+      requestDraw();
+    }
+
+    function startRandomEye() {
+      if (randomTimer) {
+        return;
+      }
+
+      randomTimer = setInterval(() => {
+        eyeNumber = randomEyeNumber();
+        updateUi();
+        requestDraw();
+      }, 1000);
+    }
+
+    function endDrag(event) {
+      if (dragIndex === null) {
+        return;
+      }
+
+      if (event && dragPointerId !== null && event.pointerId !== dragPointerId) {
+        return;
+      }
+
+      if (event && canvas.hasPointerCapture && canvas.hasPointerCapture(event.pointerId)) {
+        canvas.releasePointerCapture(event.pointerId);
+      }
+
+      dragIndex = null;
+      dragPointerId = null;
+      dragOffset = { x: 0, y: 0 };
+      hoverIndex = null;
+      canvas.style.cursor = "crosshair";
+      updateUi();
+      requestDraw();
+    }
+
+    resetBtn.addEventListener("click", reset);
+
+    canvas.addEventListener("pointerdown", (event) => {
+      event.preventDefault();
+      const point = canvasPoint(event);
+      const index = nearestNode(point);
+
+      if (index !== null) {
+        const nodePoint = project(nodes[index]);
+        dragIndex = index;
+        hoverIndex = index;
+        dragPointerId = event.pointerId;
+        dragOffset = {
+          x: point.x - nodePoint.x,
+          y: point.y - nodePoint.y
+        };
+        canvas.setPointerCapture(event.pointerId);
+        canvas.style.cursor = "grabbing";
+        moveNode(index, point, true);
+        return;
+      }
+
+      hoverIndex = null;
+      requestDraw();
+    }, { passive: false });
+
+    canvas.addEventListener("pointermove", (event) => {
+      const point = canvasPoint(event);
+
+      if (dragIndex !== null) {
+        if (event.pointerId !== dragPointerId) {
+          return;
+        }
+
+        event.preventDefault();
+        moveNode(dragIndex, point, true);
+        return;
+      }
+
+      const nextHover = nearestNode(point);
+
+      if (hoverIndex !== nextHover) {
+        hoverIndex = nextHover;
+        requestDraw();
+      }
+
+      canvas.style.cursor = nextHover !== null ? "grab" : "crosshair";
+    }, { passive: false });
+
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener("lostpointercapture", endDrag);
+    canvas.addEventListener("pointerleave", () => {
+      if (dragIndex !== null || hoverIndex === null) {
+        return;
+      }
+
+      hoverIndex = null;
+      canvas.style.cursor = "crosshair";
+      requestDraw();
+    });
+
+    window.addEventListener("resize", resizeCanvas);
+
+    reset();
+    resizeCanvas();
+    startRandomEye();
+  </script>
+</body>
+</html>
