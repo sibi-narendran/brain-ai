@@ -74,7 +74,7 @@
 
     .metrics {
       display: grid;
-      grid-template-columns: repeat(5, minmax(96px, 1fr));
+      grid-template-columns: repeat(6, minmax(96px, 1fr));
       gap: 8px;
     }
 
@@ -269,6 +269,18 @@
       <span>Steps toward food</span>
       <strong id="scoreOut">0</strong>
     </div>
+    <div class="metric">
+      <span>Distance</span>
+      <strong id="distOut">0</strong>
+    </div>
+    <div class="metric">
+      <span>Best distance</span>
+      <strong id="bestDistOut">0</strong>
+    </div>
+    <div class="metric">
+      <span>Goal reached</span>
+      <strong id="reachOut">No</strong>
+    </div>
   </section>
 
   <section class="layout">
@@ -347,6 +359,9 @@
   const concOut = document.getElementById("concOut");
   const methOut = document.getElementById("methOut");
   const diffOut = document.getElementById("diffOut");
+  const distOut = document.getElementById("distOut");
+  const bestDistOut = document.getElementById("bestDistOut");
+  const reachOut = document.getElementById("reachOut");
   const stateOut = document.getElementById("stateOut");
   const scoreOut = document.getElementById("scoreOut");
   const concBar = document.getElementById("concBar");
@@ -372,6 +387,7 @@
   const TUMBLE_DURATION = 0.3; // seconds per tumble
   const BASE_TUMBLE = 0.18;    // base tumble probability per second
   const TRAIL_MAX = 320;
+  const GOAL_RADIUS = 12;
 
   // Food source
   let food = { x: 0.72, y: 0.48 };
@@ -380,6 +396,9 @@
   let bact = {};
   let trail = [];
   let score = 0;
+  let bestDistance = Infinity;
+  let goalHits = 0;
+  let reachedGoal = false;
   let paused = false;
   let animFrame = null;
   let lastTime = null;
@@ -394,6 +413,14 @@
     return Math.max(0, 1 - dist / maxDist);
   }
 
+  function distanceToFood(x, y) {
+    const fx = food.x * W;
+    const fy = food.y * H;
+    const dx = x - fx;
+    const dy = y - fy;
+    return Math.sqrt(dx * dx + dy * dy);
+  }
+
   function resetBact() {
     bact = {
       x: W * 0.18,
@@ -406,6 +433,9 @@
     };
     trail = [];
     score = 0;
+    bestDistance = distanceToFood(bact.x, bact.y);
+    goalHits = 0;
+    reachedGoal = false;
   }
 
   function tumbleProbability(diff) {
@@ -423,6 +453,7 @@
     bact.methylation += (conc - bact.methylation) / TAU_METH * dt;
 
     const diff = conc - bact.methylation;
+    let dist = distanceToFood(bact.x, bact.y);
 
     // CheY drives tumbling — inversely related to diff
     bact.cheY = Math.max(0, Math.min(1, 0.5 - diff * 4));
@@ -446,6 +477,9 @@
       if (bact.y > H - 8) { bact.y = H - 8; bact.angle = -bact.angle; }
 
       const newConc = concentration(bact.x, bact.y);
+      const newDist = distanceToFood(bact.x, bact.y);
+      if (newDist < bestDistance) bestDistance = newDist;
+      dist = newDist;
       if (newConc > prevConc) score++;
 
       // Decide to tumble
@@ -472,7 +506,12 @@
       trail.shift();
     }
 
-    return { conc, diff };
+    if (!reachedGoal && dist <= GOAL_RADIUS) {
+      reachedGoal = true;
+      goalHits++;
+    }
+
+    return { conc, diff, dist };
   }
 
   function drawGradient() {
@@ -679,13 +718,16 @@
     ctx.strokeRect(0, 0, W, H);
   }
 
-  function updateUI(conc, diff) {
+  function updateUI(conc, diff, dist) {
     const tumbleP = tumbleProbability(diff);
 
     concOut.textContent = conc.toFixed(3);
     methOut.textContent = bact.methylation.toFixed(3);
     diffOut.textContent = (diff >= 0 ? "+" : "") + diff.toFixed(3);
     diffOut.style.color = diff >= 0 ? "#15803d" : "#dc2626";
+    distOut.textContent = Math.round(dist) + " px";
+    bestDistOut.textContent = Math.round(bestDistance) + " px";
+    reachOut.textContent = `${reachedGoal ? "yes" : "no"} ${goalHits ? `(${goalHits})` : ""}`.trim();
     scoreOut.textContent = score;
 
     if (bact.tumbling) {
@@ -720,9 +762,9 @@
     const dt = Math.min((timestamp - lastTime) / 1000, 0.05);
     lastTime = timestamp;
 
-    const { conc, diff } = step(dt);
+    const { conc, diff, dist } = step(dt);
     draw();
-    updateUI(conc, diff);
+    updateUI(conc, diff, dist);
 
     animFrame = requestAnimationFrame(loop);
   }
