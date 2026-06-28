@@ -1,0 +1,6 @@
+# Generated artifact — lists private repos, not part of the project
+github-repos.pdf
+
+# OS / tooling
+.DS_Store
+.claude/
